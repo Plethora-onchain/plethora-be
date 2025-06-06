@@ -1,0 +1,269 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(uuid())
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  deleted_at       DateTime?
+  name             String
+  firstName        String?
+  lastName         String?
+  email            String    @unique
+  username         String    @unique
+  bio              String?   @db.Text
+  dob              DateTime?
+  referral_id      String?   @unique
+  email_verified   Boolean   @default(false)
+  phone_number     String?
+  kyc_verified     Boolean?
+  user_charge_type String    @default("percentage")
+  role             Role      @default(USER)
+  verified         Boolean   @default(false)
+  avatar           String?
+  followerCount    Int       @default(0)
+  followingCount   Int       @default(0)
+  contentCount     Int       @default(0)
+  lastActive       DateTime?
+
+  // Relationships
+  referrerId          String?
+  referrer            User?               @relation("UserReferrals", fields: [referrerId], references: [id])
+  referrals           User[]              @relation("UserReferrals")
+  contents_created    Content[]
+  collections_created Collection[]
+  subscriptions       Subscription[]
+  wallet              Wallet?
+  followers           Followers[]         @relation("UserFollowers")
+  following           Followers[]         @relation("UserFollowing")
+  content_payments    ContentPayment[]
+  collection_payments CollectionPayment[]
+  content_comments    ContentComment[]
+
+  // Added fields
+  privyId String @unique
+}
+
+model Content {
+  id                       String        @id @default(uuid())
+  created_at               DateTime      @default(now())
+  updated_at               DateTime      @updatedAt
+  deleted_at               DateTime?
+  title                    String
+  description              String?       @db.Text
+  ownerId                  String
+  owner                    User          @relation(fields: [ownerId], references: [id])
+  type                     String
+  is_available             Boolean       @default(true)
+  approved_by_admin        Boolean       @default(false)
+  show_only_in_collections Boolean       @default(false)
+  views                    Int           @default(0)
+  is_adult                 Boolean       @default(false)
+  is_challenge             Boolean       @default(false)
+  live_ended_at            DateTime?
+  scheduled_date           DateTime?
+  archived_at              DateTime?
+  live_type                String?
+  live_provider            String?
+  commentCount             Int           @default(0)
+  likeCount                Int           @default(0)
+  viewCount                Int           @default(0)
+  status                   ContentStatus @default(PUBLISHED)
+  published                Boolean       @default(true)
+  isPremium                Boolean       @default(false)
+  isPromoted               Boolean       @default(false)
+  mediaUrl                 String?
+  thumbnailUrl             String?
+
+  // Relationships
+  subscriptions Subscription[]
+  collections   Collection[]
+  categories    Categorable[]    @relation("ContentCategories")
+  tags          Taggable[]       @relation("ContentTags")
+  payments      ContentPayment[]
+  comments      ContentComment[]
+}
+
+model Collection {
+  id                String    @id @default(uuid())
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+  name              String
+  description       String?   @db.Text
+  ownerId           String
+  owner             User      @relation(fields: [ownerId], references: [id])
+  is_available      Boolean   @default(true)
+  approved_by_admin Boolean   @default(false)
+  isPremium         Boolean   @default(false)
+  isPromoted        Boolean   @default(false)
+  thumbnailUrl      String?
+
+  // Relationships
+  contents Content[]
+  payments CollectionPayment[]
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+  name        String
+  description String?   @db.Text
+  slug        String    @unique
+
+  // Relationships
+  contents Categorable[]
+}
+
+model Tag {
+  id         String    @id @default(uuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+  name       String
+  slug       String    @unique
+
+  // Relationships
+  contents Taggable[]
+}
+
+model Subscription {
+  id         String             @id @default(uuid())
+  created_at DateTime           @default(now())
+  updated_at DateTime           @updatedAt
+  deleted_at DateTime?
+  userId     String
+  user       User               @relation(fields: [userId], references: [id])
+  contentId  String
+  content    Content            @relation(fields: [contentId], references: [id])
+  status     SubscriptionStatus @default(ACTIVE)
+  startDate  DateTime           @default(now())
+  endDate    DateTime?
+}
+
+model Wallet {
+  id         String    @id @default(uuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id])
+  balance    Float     @default(0)
+  currency   String    @default("USD")
+}
+
+model ContentComment {
+  id             String    @id @default(uuid())
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  deleted_at     DateTime?
+  commentContent String    @db.Text
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  contentId      String
+  content        Content   @relation(fields: [contentId], references: [id])
+}
+
+// Junction Tables
+model Followers {
+  userId     String
+  followerId String
+  user       User   @relation("UserFollowers", fields: [userId], references: [id])
+  follower   User   @relation("UserFollowing", fields: [followerId], references: [id])
+
+  @@id([userId, followerId])
+}
+
+model ContentPayment {
+  id         String        @id @default(uuid())
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+  deleted_at DateTime?
+  userId     String
+  contentId  String
+  user       User          @relation(fields: [userId], references: [id])
+  content    Content       @relation(fields: [contentId], references: [id])
+  amount     Float
+  currency   String        @default("USD")
+  status     PaymentStatus @default(COMPLETED)
+
+  @@unique([userId, contentId])
+}
+
+model CollectionPayment {
+  id           String        @id @default(uuid())
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+  deleted_at   DateTime?
+  userId       String
+  collectionId String
+  user         User          @relation(fields: [userId], references: [id])
+  collection   Collection    @relation(fields: [collectionId], references: [id])
+  amount       Float
+  currency     String        @default("USD")
+  status       PaymentStatus @default(COMPLETED)
+
+  @@unique([userId, collectionId])
+}
+
+// Replace Userable with these two models
+model Categorable {
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id])
+  categorableId   String
+  categorableType String
+  content         Content? @relation("ContentCategories", fields: [categorableId], references: [id], map: "categorable_content_fkey")
+
+  @@id([categoryId, categorableId, categorableType])
+}
+
+model Taggable {
+  tagId        String
+  tag          Tag      @relation(fields: [tagId], references: [id])
+  taggableId   String
+  taggableType String
+  content      Content? @relation("ContentTags", fields: [taggableId], references: [id], map: "taggable_content_fkey")
+
+  @@id([tagId, taggableId, taggableType])
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
