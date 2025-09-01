@@ -42,9 +42,7 @@ export const verifyPrivyToken = async (req: Request, res: Response, next: NextFu
   }
 
   try {
-    const decodedClaims = privyVerificationKey
-      ? await privy.verifyAuthToken(token, privyVerificationKey)
-      : await privy.verifyAuthToken(token);
+    const decodedClaims = await privy.verifyAuthToken(token);
     
     req.privyUser = decodedClaims; // No cast needed if types match
     next();
